@@ -62,7 +62,7 @@
       <i class="fa-solid fa-arrow-left"></i> Quay lại
     </button>
     <div v-else class="flex items-center space-x-2">
-      <div class="w-9 h-9 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-indigo-100">I</div>
+      <div class="w-9 h-9 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-indigo-100">V</div>
       <span class="font-black text-xl text-slate-900 tracking-tight">IELTS Vocabulary</span>
     </div>
     <span class="text-xs font-black bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 rounded-full flex items-center shadow-sm" title="Chuỗi ngày học liên tiếp">
@@ -293,6 +293,23 @@
         </div>
       </div>
 
+      <div v-if="micOn" class="border-2 rounded-2xl px-4 py-3 text-center space-y-1.5 shadow-sm transition-colors" :class="speakResult && speakResult.pass && !liveText ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white'">
+        <div class="min-h-[2.75rem] flex items-center justify-center">
+          <span v-if="liveText" class="text-2xl font-black text-indigo-600 break-words">{{ liveText }}<span class="animate-pulse">…</span></span>
+          <span v-else-if="speakResult && speakResult.pass" class="text-2xl font-black text-emerald-600 break-words">{{ speakResult.heard }} <i class="fa-solid fa-circle-check text-xl"></i></span>
+          <span v-else-if="speakResult" class="text-2xl font-black text-rose-500 break-words">{{ speakResult.heard }}</span>
+          <span v-else class="text-xs font-bold text-slate-400 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>{{ micListening ? 'Đang nghe… hãy đọc to từ trên thẻ' : 'Đang bật mic…' }}</span>
+        </div>
+        <div v-if="speakResult && !speakResult.pass && !liveText" class="text-xs font-semibold text-slate-500">Máy nghe được như trên · chưa khớp, thử đọc lại nhé.</div>
+        <button v-if="speakResult && !speakResult.pass && !liveText && speakTries >= 3" @click="micAdvance" class="ui-press text-[11px] font-extrabold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full">{{ studyMode === 'classic' ? 'Bỏ qua →' : 'Bỏ qua · lật thẻ' }}</button>
+        <p class="text-[10px] text-slate-400 leading-snug">Dùng nhận dạng giọng nói của trình duyệt (âm thanh gửi cho Google, cần có mạng). Chỉ là độ khớp để tham khảo.</p>
+      </div>
+
+      <button @click="toggleMic" :class="micOn ? 'bg-rose-500 hover:bg-rose-600 text-white border-2 border-rose-500' : 'bg-white hover:bg-indigo-50 text-indigo-700 border-2 border-indigo-200'" class="ui-press w-full py-3 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2.5 shadow-sm">
+        <span class="w-8 h-8 rounded-full flex items-center justify-center" :class="micOn ? 'bg-white/25 animate-pulse' : 'bg-indigo-100'"><i class="fa-solid fa-microphone"></i></span>
+        {{ micOn ? 'Đang nghe · bấm để tắt mic' : 'Bấm để luyện nói' }}
+      </button>
+
       <div v-if="studyMode === 'classic'" class="grid grid-cols-2 gap-3 pt-2">
         <button @click="prevClassicCard" :disabled="currentCardIndex === 0 || isSwiping" class="py-3.5 px-3 bg-slate-200 hover:bg-slate-300 disabled:opacity-40 text-slate-800 font-extrabold text-xs rounded-2xl transition"><i class="fa-solid fa-chevron-left mr-1"></i> Từ trước</button>
         <button @click="nextClassicCard" :disabled="isSwiping" class="py-3.5 px-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-extrabold text-xs rounded-2xl transition shadow-md">{{ currentCardIndex === studyList.length - 1 ? 'Hoàn tất' : 'Từ tiếp' }} <i class="fa-solid fa-chevron-right ml-1"></i></button>
@@ -345,14 +362,17 @@
           </div>
           <p class="text-xs text-slate-400 italic mt-1">"{{ currentTypingWord?.exampleMeaning }}"</p>
         </div>
-        <input type="text" v-model="typingInput" @keydown.enter.stop.prevent="checkTyping" ref="typingInputRef" placeholder="Gõ từ tiếng Anh vào đây..."
+        <input type="text" v-model="typingInput" @keydown.enter.stop.prevent="checkTyping" ref="typingInputRef" placeholder="Gõ từ tiếng Anh vào đây..." :readonly="typingChecked && typingIsCorrect"
                class="w-full p-4 text-center text-lg font-bold border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white shadow-sm transition">
         <div v-if="typingChecked" class="p-4 rounded-2xl text-center font-bold text-sm" :class="typingIsCorrect ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'">
-          <div v-if="typingIsCorrect">Chính xác! 🎉</div>
-          <div v-else>Đáp án đúng: <span class="underline text-indigo-600 font-extrabold">{{ currentTypingWord?.term }}</span></div>
+          <div v-if="typingIsCorrect">{{ typingRetried ? 'Đúng rồi! Gõ lại là nhớ ngay 💪' : 'Chính xác! 🎉' }}</div>
+          <div v-else>
+            <div>Đáp án đúng: <span class="underline text-indigo-600 font-extrabold">{{ currentTypingWord?.term }}</span></div>
+            <div class="text-xs font-semibold text-rose-500 mt-1">Gõ lại để thử lại, hoặc nhấn Enter để qua từ tiếp theo</div>
+          </div>
         </div>
       </div>
-      <button @click="checkTyping" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm rounded-2xl shadow-md transition">{{ typingChecked ? 'Từ tiếp theo (Enter)' : 'Kiểm tra (Enter)' }}</button>
+      <button @click="checkTyping" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm rounded-2xl shadow-md transition">{{ typingChecked ? (typingCanRecheck ? 'Kiểm tra lại (Enter)' : 'Từ tiếp theo (Enter)') : 'Kiểm tra (Enter)' }}</button>
     </div>
 
     <!-- 7. SENTENCE -->
@@ -377,13 +397,14 @@
         </div>
         <div v-if="sentenceChecked" class="border rounded-2xl p-4 space-y-1.5 animate-fade-in text-xs font-medium" :class="sentenceIsCorrect ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-rose-50 border-rose-300 text-rose-800'">
           <div class="flex justify-between items-center">
-            <span class="font-extrabold text-sm flex items-center gap-1.5"><i :class="sentenceIsCorrect ? 'fa-solid fa-circle-check text-emerald-600' : 'fa-solid fa-circle-xmark text-rose-600'"></i>{{ sentenceIsCorrect ? 'Chính xác! Hoàn hảo!' : 'Chưa đúng câu gốc!' }}</span>
+            <span class="font-extrabold text-sm flex items-center gap-1.5"><i :class="sentenceIsCorrect ? 'fa-solid fa-circle-check text-emerald-600' : 'fa-solid fa-circle-xmark text-rose-600'"></i>{{ sentenceIsCorrect ? (sentenceRetried ? 'Đúng rồi! Sửa lại được rồi 💪' : 'Chính xác! Hoàn hảo!') : 'Chưa đúng câu gốc!' }}</span>
             <button @click="speak(currentSentenceItem?.example)" class="text-slate-600 hover:text-slate-900 flex items-center gap-1 text-xs"><i class="fa-solid fa-volume-high"></i> Nghe</button>
           </div>
           <p class="italic text-indigo-700 font-semibold mt-1">Đáp án chuẩn: "{{ currentSentenceItem?.example }}"</p>
+          <p v-if="!sentenceIsCorrect" class="text-[11px] font-semibold text-rose-500">Chạm các từ để xếp lại rồi bấm Kiểm tra lại, hoặc Enter để qua câu tiếp theo</p>
         </div>
       </div>
-      <button @click="handleSentenceSubmit" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm rounded-2xl shadow-md transition">{{ sentenceChecked ? 'Câu tiếp theo (Enter)' : 'Kiểm tra (Enter)' }}</button>
+      <button @click="handleSentenceSubmit" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm rounded-2xl shadow-md transition">{{ sentenceChecked ? (sentenceCanRecheck ? 'Kiểm tra lại (Enter)' : 'Câu tiếp theo (Enter)') : 'Kiểm tra (Enter)' }}</button>
     </div>
 
     <!-- 8. SUMMARY -->
@@ -405,10 +426,12 @@
     <p class="text-[11px] font-bold text-indigo-600">IELTS CROWN &amp; SHINEE Teacher</p>
     <p class="text-[10px] text-slate-400 font-medium">&copy; 2026</p>
   </footer>
+
+  <div v-if="speechMsg" @click="speechMsg = ''" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm bg-slate-900 text-white text-xs font-semibold leading-relaxed rounded-2xl px-4 py-3 shadow-lg animate-fade-in">{{ speechMsg }}</div>
 </div>
 
 <script>
-const { createApp, ref, computed, onMounted, nextTick } = Vue;
+const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
 
 // [term, pos, ipa, nghĩa, câu ví dụ, nghĩa câu ví dụ]
 const RAW = [
@@ -3792,8 +3815,8 @@ createApp({
     const studyMode = ref('smart'), studyList = ref([]), currentCardIndex = ref(0), isFlipped = ref(false);
     const swipeDirection = ref(null), isSwiping = ref(false), sessionCorrectCount = ref(0);
     const quizQuestions = ref([]), quizIndex = ref(0), quizAnswered = ref(false), selectedQuizOption = ref(null), quizScore = ref(0);
-    const typingList = ref([]), typingIndex = ref(0), typingInput = ref(''), typingChecked = ref(false), typingIsCorrect = ref(false), typingInputRef = ref(null);
-    const sentenceList = ref([]), sentenceIndex = ref(0), wordBank = ref([]), selectedWords = ref([]), sentenceChecked = ref(false), sentenceIsCorrect = ref(false);
+    const typingList = ref([]), typingIndex = ref(0), typingInput = ref(''), typingChecked = ref(false), typingIsCorrect = ref(false), typingLastChecked = ref(''), typingRetried = ref(false), typingInputRef = ref(null);
+    const sentenceList = ref([]), sentenceIndex = ref(0), wordBank = ref([]), selectedWords = ref([]), sentenceChecked = ref(false), sentenceIsCorrect = ref(false), sentenceLastChecked = ref(''), sentenceRetried = ref(false);
     const summaryStats = ref({ total: 0, correct: 0 });
 
     // ===== LƯU TRỮ + SRS (dùng chung mọi chế độ) =====
@@ -3908,24 +3931,179 @@ createApp({
       else if (currentScreen.value === 'mode_select') currentScreen.value = 'topic_detail';
       else if (currentScreen.value === 'topic_detail') currentScreen.value = 'dashboard';
     };
+    // ===== PHÁT ÂM =====
+    const speechMsg = ref('');
+    let speechTimer = null, voiceEN = null, lastUtter = null;
+    const inAppBrowser = /Zalo|FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\//i.test(navigator.userAgent);
+    const HINT_FAIL = inAppBrowser
+      ? 'Bạn đang mở link trong ứng dụng (Zalo/Facebook...). Bấm dấu ⋯ rồi chọn "Mở bằng trình duyệt" (Chrome/Safari) để nghe phát âm.'
+      : 'Chưa nghe được âm thanh? Hãy bật âm lượng media, tắt chế độ im lặng, hoặc mở link bằng Chrome/Safari.';
+    const showSpeechMsg = (m) => { speechMsg.value = m; clearTimeout(speechTimer); speechTimer = setTimeout(() => { speechMsg.value = ''; }, 7000); };
+    const pickVoice = () => { try { const vs = window.speechSynthesis.getVoices();
+      voiceEN = vs.find(v => /^en[-_]US/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null; } catch (e) {} };
+    if ('speechSynthesis' in window) { pickVoice(); try { window.speechSynthesis.onvoiceschanged = pickVoice; } catch (e) {} }
     const speak = (text) => {
-      if ('speechSynthesis' in window && text) { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; window.speechSynthesis.speak(u); }
+      if (!text) return;
+      if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') { showSpeechMsg(HINT_FAIL); return; }
+      try {
+        const synth = window.speechSynthesis, u = new SpeechSynthesisUtterance(text);
+        u.lang = 'en-US'; u.rate = 0.9; if (voiceEN) u.voice = voiceEN;
+        let started = false;
+        u.onstart = () => { started = true; };
+        u.onerror = (e) => { if (lastUtter === u) micResumeAfterSpeak(); if (e && e.error !== 'interrupted' && e.error !== 'canceled') showSpeechMsg(HINT_FAIL); };
+        u.onend = () => { if (lastUtter === u) micResumeAfterSpeak(); };
+        lastUtter = u;   // giữ tham chiếu để trình duyệt không thu hồi giữa chừng
+        micPauseForSpeak();   // đang bật mic thì tạm dừng, tránh mic nghe luôn giọng mẫu
+        const go = () => { try { synth.resume(); } catch (e) {} synth.speak(u); };
+        if (synth.speaking || synth.pending) { synth.cancel(); setTimeout(go, 80); } else go();   // gọi ngay trong lúc bấm để iPhone không chặn
+        setTimeout(() => { if (!started && lastUtter === u) showSpeechMsg(HINT_FAIL); }, 2500);
+      } catch (e) { showSpeechMsg(HINT_FAIL); }
     };
 
+    // ===== NÓI ĐỂ KIỂM TRA PHÁT ÂM (flashcard) =====
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const micOn = ref(false), micListening = ref(false), speakResult = ref(null), speakTries = ref(0), liveText = ref('');
+    let rec = null, micHold = false, micRestartTimer = null, passTimer = null, holdTimer = null;
+    const PASS_PCT = 80;
+    const normSp = x => (x || '').toLowerCase().replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const lev = (a, b) => {
+      const m = a.length, n = b.length; if (!m) return n; if (!n) return m;
+      let prev = Array.from({ length: n + 1 }, (_, j) => j);
+      for (let i = 1; i <= m; i++) { const cur = [i];
+        for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        prev = cur; }
+      return prev[n];
+    };
+    const termVariants = (term) => {   // bỏ phần trong ngoặc, sb/sth; tách "a/b" thành 2 cách đọc
+      const t = (term || '').replace(/\(.*?\)/g, ' ').replace(/\b(sb|sth|someone|something)\b/gi, ' ').replace(/\s+/g, ' ').trim();
+      const m = t.match(/(\S+)\/(\S+)/);
+      return (m ? [t.replace(m[0], m[1]), t.replace(m[0], m[2])] : [t]).map(normSp).filter(Boolean);
+    };
+    // Chrome hay trả "one" thành "1", "one one" thành "11": đổi chữ số về chữ để so với từ trên thẻ
+    const ONES = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
+    const TENS = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+    const numWords = (n) => {
+      if (n < 20) return ONES[n];
+      if (n < 100) return TENS[Math.floor(n / 10)] + (n % 10 ? ' ' + ONES[n % 10] : '');
+      if (n < 1000) return ONES[Math.floor(n / 100)] + ' hundred' + (n % 100 ? ' ' + numWords(n % 100) : '');
+      return numWords(Math.floor(n / 1000)) + ' thousand' + (n % 1000 ? ' ' + numWords(n % 1000) : '');
+    };
+    const expandNums = (txt) => {   // txt đã chuẩn hóa; trả về các cách hiểu có thể của chữ số trong đó
+      if (!/\d/.test(txt)) return [txt];
+      const toks = txt.split(' ');
+      const words = toks.map(t => (/^\d+$/.test(t) && t.length <= 6) ? numWords(parseInt(t, 10)) : t).join(' ');   // 11 -> eleven
+      const repeated = toks.map(t => (/^(\d)\1+$/.test(t)) ? t.split('').map(c => ONES[+c]).join(' ') : t).join(' ');   // 11 -> one one (đọc lặp)
+      return [...new Set([txt, words, repeated])];
+    };
+    const matchPct = (alts, term) => {
+      let best = 0, bestHeard = alts[0] || '', bestMatched = ''; const vs = termVariants(term);
+      const score = (h, v) => (h && v ? Math.round((1 - lev(h, v) / Math.max(h.length, v.length)) * 100) : 0);
+      for (const h of alts) {
+        const base = normSp((h || '').replace(/(\d),(?=\d{3}\b)/g, '$1'));   // "1,000" -> "1000"
+        for (const hh of expandNums(base)) {
+          const hw = hh.split(' ').filter(Boolean);
+          for (const v of vs) {
+            const n = v.split(' ').length, cands = [hh];   // cả câu + mọi đoạn liên tiếp dài bằng từ cần đọc (±1 chữ)
+            for (let size = Math.max(1, n - 1); size <= n + 1; size++) for (let i = 0; i + size <= hw.length; i++) cands.push(hw.slice(i, i + size).join(' '));
+            for (const c of cands) { const pc = score(c, v); if (pc > best) { best = pc; bestHeard = h; bestMatched = c; } }
+          }
+        }
+      }
+      return { pct: best, heard: (bestHeard || '').trim(), matched: bestMatched };
+    };
+    const micAdvance = () => {   // classic: sang thẻ sau; smart: lật thẻ để học viên tự chọn mức nhớ (đọc đúng chưa chứng tỏ đã nhớ nghĩa)
+      clearTimeout(passTimer);
+      if (currentScreen.value !== 'study_flashcard' || isSwiping.value) return;
+      if (studyMode.value === 'classic') nextClassicCard(); else if (!isFlipped.value) flipCard();
+    };
+    const micPass = (m, card) => {
+      liveText.value = ''; speakResult.value = { pct: m.pct, heard: m.matched || m.heard, pass: true };
+      clearTimeout(passTimer); const key = card.key;
+      passTimer = setTimeout(() => { if (currentCard.value && currentCard.value.key === key) micAdvance(); }, 1000);
+    };
+    const onMicResult = (e) => {
+      if (currentScreen.value !== 'study_flashcard' || isFlipped.value || isSwiping.value || micHold) return;
+      const card = currentCard.value; if (!card || !card.term) return;
+      if (speakResult.value && speakResult.value.pass) return;
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        const alts = []; for (let k = 0; k < r.length; k++) alts.push(r[k].transcript);
+        const m = matchPct(alts, card.term);
+        if (m.pct >= PASS_PCT) { if (r.isFinal) speakTries.value++; micPass(m, card); return; }   // đủ khớp (kể cả khi còn đang nói) -> báo đúng ngay
+        if (r.isFinal) { speakTries.value++; liveText.value = ''; interim = ''; speakResult.value = { pct: m.pct, heard: (alts[0] || m.heard || '').trim(), pass: false }; }   // sai: hiện đúng chữ máy nghe được
+        else interim = alts[0] || '';
+      }
+      if (interim) liveText.value = interim.trim();   // chữ máy đang nghe được, cập nhật liên tục
+    };
+    const micRun = () => { try { rec.start(); } catch (e) { /* đang chạy rồi */ } };
+    const micStop = () => {
+      micOn.value = false; micListening.value = false; micHold = false;
+      clearTimeout(micRestartTimer); clearTimeout(passTimer); clearTimeout(holdTimer);
+      try { if (rec) rec.abort(); } catch (e) {}
+      speakResult.value = null; speakTries.value = 0; liveText.value = '';
+    };
+    const micStart = () => {
+      if (!rec) {
+        rec = new SR(); rec.lang = 'en-US'; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 5;
+        rec.onstart = () => { micListening.value = true; };
+        rec.onresult = onMicResult;
+        rec.onerror = (e) => {
+          const err = e && e.error;
+          if (err === 'not-allowed' || err === 'service-not-allowed') { micStop(); showSpeechMsg('Chưa dùng được micro. Hãy bấm "Cho phép" khi trình duyệt hỏi, hoặc mở link bằng Chrome/Safari (không mở trong Zalo/Facebook).'); }
+          else if (err === 'audio-capture') { micStop(); showSpeechMsg('Không tìm thấy micro trên thiết bị. Hãy kiểm tra micro rồi thử lại.'); }
+          else if (err === 'network') { micStop(); showSpeechMsg('Cần có mạng để nhận dạng giọng nói. Hãy kiểm tra kết nối rồi thử lại.'); }
+        };
+        rec.onend = () => {   // trình duyệt tự dừng sau khi im lặng -> bật lại cho đến khi người dùng bấm tắt
+          micListening.value = false; liveText.value = '';
+          if (micOn.value && !micHold) { clearTimeout(micRestartTimer); micRestartTimer = setTimeout(() => { if (micOn.value && !micHold) micRun(); }, 300); }
+        };
+      }
+      micRun();
+    };
+    const toggleMic = () => {
+      if (micOn.value) { micStop(); return; }
+      if (!SR) {
+        showSpeechMsg(inAppBrowser
+          ? 'Bạn đang mở link trong ứng dụng (Zalo/Facebook...) nên chưa dùng được micro. Hãy mở bằng Chrome hoặc Safari.'
+          : 'Trình duyệt này chưa hỗ trợ nhận dạng giọng nói. Hãy đổi sang Chrome hoặc Edge (Android hoặc máy tính) để dùng chức năng này.');
+        return;
+      }
+      micOn.value = true; speakResult.value = null; speakTries.value = 0; liveText.value = ''; micHold = false; micStart();
+    };
+    const micPauseForSpeak = () => {
+      if (!micOn.value) return;
+      micHold = true; liveText.value = ''; clearTimeout(holdTimer); clearTimeout(micRestartTimer);
+      try { if (rec) rec.abort(); } catch (e) {}
+      holdTimer = setTimeout(micResumeAfterSpeak, 8000);   // phòng khi trình duyệt không báo kết thúc
+    };
+    const micResumeAfterSpeak = () => {
+      clearTimeout(holdTimer); if (!micHold) return; micHold = false;
+      if (micOn.value) { clearTimeout(micRestartTimer); micRestartTimer = setTimeout(() => { if (micOn.value && !micHold) micRun(); }, 400); }
+    };
+    watch(currentScreen, (v) => { if (v !== 'study_flashcard') micStop(); });
+    watch(currentCardIndex, () => { speakResult.value = null; speakTries.value = 0; liveText.value = ''; clearTimeout(passTimer); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden && micOn.value) micStop(); });
+
     // ===== BẮT ĐẦU PHIÊN =====
+    // Xáo trộn chuẩn Fisher-Yates (sort(() => Math.random()-0.5) bị lệch: phần tử đầu hay đứng yên)
+    const shuffle = (arr) => { const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+      return a; };
     const SESSION_SIZE = 20;
     let sessionTotal = 0, retriedSet = new Set();
     const startSmart = (words) => {
       if (!words.length) return;
       const target = Math.min(SESSION_SIZE, words.length);   // bộ ít hơn 20 từ thì học hết bộ
       const due = words.filter(w => progOf(w)?.seen && isDue(progOf(w))).sort((a, b) => progOf(a).dueDate - progOf(b).dueDate);
-      const fresh = words.filter(w => !progOf(w)?.seen).sort(() => Math.random() - 0.5);
+      const fresh = shuffle(words.filter(w => !progOf(w)?.seen));
       let list = [...due, ...fresh].slice(0, target);
       const core = list.length;
       if (list.length < target) {   // thiếu thì bù bằng từ khác (luyện thêm, không đổi lịch ôn)
-        const rest = words.filter(w => !list.includes(w)).sort(() => Math.random() - 0.5);
+        const rest = shuffle(words.filter(w => !list.includes(w)));
         list = [...list, ...rest].slice(0, target);
       }
+      list = shuffle(list);   // mỗi phiên một thứ tự khác
       padCount.value = list.length - core;
       extraPractice.value = core === 0;
       sessionTotal = list.length; retriedSet = new Set();
@@ -3939,17 +4117,18 @@ createApp({
       if (mode === 'smart') { startSmart(words); }
       else if (mode === 'classic') { extraPractice.value = false; padCount.value = 0; studyList.value = [...words]; currentCardIndex.value = 0; isFlipped.value = false; currentScreen.value = 'study_flashcard'; }
       else if (mode === 'quiz') {
-        quizQuestions.value = [...words].sort(() => 0.5 - Math.random()).map(w => {
-          const distractors = activeTopicWords.value.filter(o => o.key !== w.key && o.definition !== w.definition).sort(() => 0.5 - Math.random()).slice(0, 3).map(o => o.definition);
-          return { word: w, options: [w.definition, ...distractors].sort(() => 0.5 - Math.random()) };
+        quizQuestions.value = shuffle(words).map(w => {
+          const defs = [...new Set(activeTopicWords.value.filter(o => o.key !== w.key && o.definition !== w.definition).map(o => o.definition))];
+          const distractors = shuffle(defs).slice(0, 3);
+          return { word: w, options: shuffle([w.definition, ...distractors]) };
         });
         quizIndex.value = 0; quizAnswered.value = false; quizScore.value = 0; currentScreen.value = 'quiz';
       } else if (mode === 'typing') {
-        typingList.value = [...words].sort(() => 0.5 - Math.random());
-        typingIndex.value = 0; typingInput.value = ''; typingChecked.value = false; sessionCorrectCount.value = 0; currentScreen.value = 'typing';
+        typingList.value = shuffle(words);
+        typingIndex.value = 0; typingInput.value = ''; typingChecked.value = false; typingIsCorrect.value = false; typingRetried.value = false; typingLastChecked.value = ''; sessionCorrectCount.value = 0; currentScreen.value = 'typing';
         nextTick(() => { if (typingInputRef.value) typingInputRef.value.focus(); });
       } else if (mode === 'sentence') {
-        sentenceList.value = [...words].sort(() => 0.5 - Math.random());
+        sentenceList.value = shuffle(words);
         sentenceIndex.value = 0; sessionCorrectCount.value = 0; setupSentenceQuestion(); currentScreen.value = 'sentence';
       }
     };
@@ -3998,15 +4177,21 @@ createApp({
     // ===== VIẾT LẠI =====
     const getWordHint = (w) => (!w || !w.term) ? '' : w.term.charAt(0).toUpperCase() + '... (' + w.term.length + ' ký tự)';
     const normTyped = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();   // bỏ qua dấu (résumé = resume) và khoảng trắng thừa
+    const typingCanRecheck = computed(() => typingChecked.value && !typingIsCorrect.value && normTyped(typingInput.value) !== typingLastChecked.value);
     const checkTyping = () => {
-      if (!typingChecked.value) {
-        typingChecked.value = true;
-        typingIsCorrect.value = normTyped(currentTypingWord.value.term) === normTyped(typingInput.value);
+      const typed = normTyped(typingInput.value), target = normTyped(currentTypingWord.value.term);
+      if (!typingChecked.value) {   // lần chấm đầu: tính điểm + lịch ôn
+        typingChecked.value = true; typingRetried.value = false; typingLastChecked.value = typed;
+        typingIsCorrect.value = typed === target;
         if (typingIsCorrect.value) sessionCorrectCount.value++;
         applyReview(currentTypingWord.value.key, typingIsCorrect.value ? 'good' : 'again');
         speak(currentTypingWord.value.term);
+      } else if (!typingIsCorrect.value && typed !== typingLastChecked.value) {   // sai rồi gõ lại: chấm lại, không tính điểm
+        typingRetried.value = true; typingLastChecked.value = typed;
+        typingIsCorrect.value = typed === target;
+        if (typingIsCorrect.value) speak(currentTypingWord.value.term);
       } else if (typingIndex.value < typingList.value.length - 1) {
-        typingIndex.value++; typingInput.value = ''; typingChecked.value = false;
+        typingIndex.value++; typingInput.value = ''; typingChecked.value = false; typingIsCorrect.value = false; typingRetried.value = false; typingLastChecked.value = '';
         nextTick(() => { if (typingInputRef.value) typingInputRef.value.focus(); });
       } else { summaryStats.value = { total: typingList.value.length, correct: sessionCorrectCount.value }; currentScreen.value = 'summary'; }
     };
@@ -4015,22 +4200,35 @@ createApp({
     const cleanSent = s => s.replace(/[.,/#!$%^&*;:{}=\_`~()?"“”]/g, '');
     function setupSentenceQuestion() {
       const item = currentSentenceItem.value; if (!item || !item.example) return;
-      const extra = ['the', 'always', 'daily'];
-      wordBank.value = [...cleanSent(item.example).split(/\s+/).filter(Boolean), ...extra].sort(() => 0.5 - Math.random()).map(w => ({ word: w, used: false }));
-      selectedWords.value = []; sentenceChecked.value = false; sentenceIsCorrect.value = false;
+      const parts = cleanSent(item.example).split(/\s+/).filter(Boolean), have = new Set(parts.map(x => x.toLowerCase()));
+      const pool = ['the', 'always', 'daily', 'very', 'often', 'really', 'quite', 'just', 'also', 'still', 'never', 'usually', 'sometimes', 'already'];
+      const extra = shuffle(pool.filter(x => !have.has(x))).slice(0, 3);   // từ gây nhiễu đổi mỗi lần, không trùng từ trong câu
+      let bank = shuffle([...parts, ...extra]);
+      if (parts.length > 1 && bank.filter(x => !extra.includes(x)).join(' ') === parts.join(' ')) bank = shuffle(bank);
+      wordBank.value = bank.map(w => ({ word: w, used: false }));
+      selectedWords.value = []; sentenceChecked.value = false; sentenceIsCorrect.value = false; sentenceRetried.value = false; sentenceLastChecked.value = '';
     }
-    const pickWord = (chip) => { chip.used = true; selectedWords.value.push(chip.word); };
+    const sentenceLocked = () => sentenceChecked.value && sentenceIsCorrect.value;   // đúng rồi thì khóa, sai thì vẫn cho xếp lại
+    const pickWord = (chip) => { if (sentenceLocked() || chip.used) return; chip.used = true; selectedWords.value.push(chip.word); };
     const removeSelectedWord = (idx) => {
+      if (sentenceLocked()) return;
       const removed = selectedWords.value.splice(idx, 1)[0];
       const chip = wordBank.value.find(c => c.word === removed && c.used); if (chip) chip.used = false;
     };
+    const normSent = x => cleanSent(x).toLowerCase().split(/\s+/).filter(Boolean).join(' ');
+    const sentenceCanRecheck = computed(() => sentenceChecked.value && !sentenceIsCorrect.value && selectedWords.value.join(' ').toLowerCase() !== sentenceLastChecked.value);
     const handleSentenceSubmit = () => {
-      if (!sentenceChecked.value) {
-        sentenceChecked.value = true;
-        sentenceIsCorrect.value = selectedWords.value.join(' ').toLowerCase() === cleanSent(currentSentenceItem.value.example).toLowerCase().split(/\s+/).join(' ');
+      const mine = selectedWords.value.join(' ').toLowerCase(), target = normSent(currentSentenceItem.value.example);
+      if (!sentenceChecked.value) {   // lần chấm đầu: tính điểm + lịch ôn
+        sentenceChecked.value = true; sentenceRetried.value = false; sentenceLastChecked.value = mine;
+        sentenceIsCorrect.value = mine === target;
         if (sentenceIsCorrect.value) sessionCorrectCount.value++;
         applyReview(currentSentenceItem.value.key, sentenceIsCorrect.value ? 'good' : 'again');
         speak(currentSentenceItem.value.example);
+      } else if (!sentenceIsCorrect.value && mine !== sentenceLastChecked.value) {   // sai rồi xếp lại: chấm lại, không tính điểm
+        sentenceRetried.value = true; sentenceLastChecked.value = mine;
+        sentenceIsCorrect.value = mine === target;
+        if (sentenceIsCorrect.value) speak(currentSentenceItem.value.example);
       } else if (sentenceIndex.value < sentenceList.value.length - 1) { sentenceIndex.value++; setupSentenceQuestion(); }
       else { summaryStats.value = { total: sentenceList.value.length, correct: sessionCorrectCount.value }; currentScreen.value = 'summary'; }
     };
@@ -4056,9 +4254,10 @@ createApp({
       openTopic, openSetModeSelect, goBack, speak, startTopicSmartReview, startStudy, studyMode, studyList, currentCardIndex,
       currentCard, nextCard, isFlipped, flipCard, getNextIntervalLabel, rateCard, swipeDirection, isSwiping, prevClassicCard, nextClassicCard,
       quizQuestions, quizIndex, currentQuizQuestion, quizAnswered, selectQuizOption, getQuizOptionClass, nextQuizQuestion,
-      typingList, typingIndex, currentTypingWord, typingInput, typingChecked, typingIsCorrect, typingInputRef, getWordHint, checkTyping,
-      sentenceList, sentenceIndex, currentSentenceItem, wordBank, selectedWords, sentenceChecked, sentenceIsCorrect, pickWord, removeSelectedWord,
-      handleSentenceSubmit, summaryStats, exportProgress, importProgress, extraPractice, padCount, progressCards };
+      typingList, typingIndex, currentTypingWord, typingInput, typingChecked, typingIsCorrect, typingRetried, typingCanRecheck, typingInputRef, getWordHint, checkTyping,
+      sentenceList, sentenceIndex, currentSentenceItem, wordBank, selectedWords, sentenceChecked, sentenceIsCorrect, sentenceRetried, sentenceCanRecheck, pickWord, removeSelectedWord,
+      handleSentenceSubmit, summaryStats, exportProgress, importProgress, extraPractice, padCount, progressCards, speechMsg,
+      micOn, micListening, speakResult, speakTries, liveText, toggleMic, micAdvance };
   }
 }).mount('#app');
 </script>
